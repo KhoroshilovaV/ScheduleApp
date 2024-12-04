@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Расписание занятий</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .table-container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    .btn-add-row {
+      background-color: #198754;
+      color: white;
+      margin-bottom: 15px;
+    }
+    .day-title {
+      background-color: #0d6efd;
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .btn-save-row {
+      background-color: #007bff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+<div class="container mt-5">
+  <h1 class="text-center mb-4">Расписание занятий</h1>
+
+  <div class="table-container" id="schedule-container">
+    <div th:each="day : ${days}">
+      <h4 class="day-title" th:text="${day.dayName}"></h4>
+      <table class="table table-bordered">
+        <thead class="table-light">
+        <tr>
+          <th>Время начала</th>
+          <th>Время конца</th>
+          <th>Занятие</th>
+          <th>Режим</th>
+          <th>Действия</th>
+        </tr>
+        </thead>
+        <tbody th:id="'day-' + ${day.id}">
+        <tr th:each="link : ${day.dayRecordLinks}" th:data-record-id="${link.record.id}">
+          <td th:text="${link.record.startTime}"></td>
+          <td th:text="${link.record.endTime}"></td>
+          <td th:text="${link.record.subject}"></td>
+          <td th:text="${link.record.mode}"></td>
+          <td>
+            <button class="btn btn-danger btn-sm remove-row">Удалить</button>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+      <button class="btn btn-sm btn-add-row" th:data-day-id="${day.id}">Добавить строку</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Добавление строки
+    document.querySelectorAll('.btn-add-row').forEach(button => {
+      button.addEventListener('click', () => {
+        const dayId = button.getAttribute('data-day-id');
+        const table = document.querySelector(`#day-${dayId}`);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td><input type="time" class="form-control start-time"></td>
+          <td><input type="time" class="form-control end-time"></td>
+          <td><input type="text" class="form-control subject"></td>
+          <td>
+            <select class="form-control mode">
+              <option value="online">Онлайн</option>
+              <option value="offline">Офлайн</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-danger btn-sm remove-row">Удалить</button>
+            <button class="btn btn-save-row btn-sm" style="display:none;">Сохранить</button>
+          </td>
+        `;
+        table.appendChild(row);
+
+        const saveButton = row.querySelector('.btn-save-row');
+        const startTimeInput = row.querySelector('.start-time');
+        const endTimeInput = row.querySelector('.end-time');
+        const subjectInput = row.querySelector('.subject');
+        const modeSelect = row.querySelector('.mode');
+
+        [startTimeInput, endTimeInput, subjectInput, modeSelect].forEach(input => {
+          input.addEventListener('input', () => {
+            if (startTimeInput.value && endTimeInput.value && subjectInput.value && modeSelect.value) {
+              saveButton.style.display = 'inline-block';
+            } else {
+              saveButton.style.display = 'none';
+            }
+          });
+        });
+
+        // Сохранение строки
+        saveButton.addEventListener('click', () => {
+          const recordData = {
+            startTime: startTimeInput.value,
+            endTime: endTimeInput.value,
+            subject: subjectInput.value,
+            mode: modeSelect.value
+          };
+          const dayId = button.getAttribute('data-day-id');
+
+          fetch('/save', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ [dayId]: [recordData] })
+          })
+                  .then(response => response.text())
+                  .then(data => {
+                    alert(data);
+                    location.reload(); // Перезагрузка страницы для обновления
+                  })
+                  .catch(error => console.error('Ошибка сохранения:', error));
+        });
+
+        row.querySelector('.remove-row').addEventListener('click', () => row.remove());
+      });
+    });
+
+    // Удаление записи
+    document.querySelectorAll('.remove-row').forEach(button => {
+      button.addEventListener('click', () => {
+        const recordId = button.closest('tr').getAttribute('data-record-id');
+        fetch(`/delete?recordId=${recordId}`, { method: 'POST' })
+                .then(response => response.text())
+                .then(data => {
+                  alert(data);
+                  location.reload(); // Перезагрузка страницы после удаления
+                })
+                .catch(error => console.error('Ошибка:', error));
+      });
+    });
+  });
+</script>
+</body>
+</html>
